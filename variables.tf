@@ -55,6 +55,11 @@ variable "description" {
   description = "(Optional) A description of the repository."
   type        = string
   default     = ""
+  
+  validation {
+    condition     = length(var.description) <= 350
+    error_message = "The value for 'description' must not exceed 350 characters."
+  }
 }
 
 variable "homepage_url" {
