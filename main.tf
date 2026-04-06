@@ -145,6 +145,19 @@ resource "github_repository" "repository" {
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Wait for the repository to become fully available in the GitHub API before
+# applying dependent resources. This avoids 404 race conditions where the
+# GitHub provider issues a PATCH immediately after the initial POST and the
+# repository is not yet committed/indexed on the GitHub side.
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "time_sleep" "wait_for_repository" {
+  depends_on = [github_repository.repository]
+
+  create_duration = "30s"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Manage branches
 # https://registry.terraform.io/providers/integrations/github/latest/docs/resources/branch
 # ---------------------------------------------------------------------------------------------------------------------
@@ -155,6 +168,8 @@ locals {
 
 resource "github_branch" "branch" {
   for_each = local.branches_map
+
+  depends_on = [time_sleep.wait_for_repository]
 
   repository    = github_repository.repository.name
   branch        = each.key
@@ -173,7 +188,7 @@ resource "github_branch_default" "default" {
   repository = github_repository.repository.name
   branch     = local.default_branch
 
-  depends_on = [github_branch.branch]
+  depends_on = [github_branch.branch, time_sleep.wait_for_repository]
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -191,6 +206,7 @@ resource "github_branch_protection_v3" "branch_protection" {
     github_team_repository.team_repository,
     github_team_repository.team_repository_by_slug,
     github_branch.branch,
+    time_sleep.wait_for_repository,
   ]
 
   repository                      = github_repository.repository.name
@@ -300,6 +316,8 @@ locals {
 resource "github_issue_label" "label" {
   for_each = local.issue_labels_create ? local.issue_labels : {}
 
+  depends_on = [time_sleep.wait_for_repository]
+
   repository  = github_repository.repository.name
   name        = each.value.name
   description = each.value.description
@@ -329,6 +347,8 @@ locals {
 resource "github_repository_collaborator" "collaborator" {
   for_each = local.collaborators
 
+  depends_on = [time_sleep.wait_for_repository]
+
   repository = github_repository.repository.name
   username   = each.key
   permission = each.value
@@ -356,6 +376,8 @@ locals {
 
 resource "github_team_repository" "team_repository" {
   count = length(local.team_ids)
+
+  depends_on = [time_sleep.wait_for_repository]
 
   repository = github_repository.repository.name
   team_id    = local.team_ids[count.index].team_id
@@ -389,7 +411,7 @@ resource "github_team_repository" "team_repository_by_slug" {
   team_id    = each.value.slug
   permission = each.value.permission
 
-  depends_on = [var.module_depends_on]
+  depends_on = [var.module_depends_on, time_sleep.wait_for_repository]
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -411,6 +433,8 @@ locals {
 
 resource "github_repository_deploy_key" "deploy_key_computed" {
   count = length(local.deploy_keys_computed)
+
+  depends_on = [time_sleep.wait_for_repository]
 
   repository = github_repository.repository.name
   title      = local.deploy_keys_computed[count.index].title
@@ -434,6 +458,8 @@ locals {
 resource "github_repository_deploy_key" "deploy_key" {
   for_each = local.deploy_keys
 
+  depends_on = [time_sleep.wait_for_repository]
+
   repository = github_repository.repository.name
   title      = each.value.title
   key        = each.value.key
@@ -453,6 +479,8 @@ locals {
 resource "github_repository_project" "repository_project" {
   for_each = local.projects
 
+  depends_on = [time_sleep.wait_for_repository]
+
   repository = github_repository.repository.name
   name       = each.value.name
   body       = each.value.body
@@ -464,6 +492,8 @@ resource "github_repository_project" "repository_project" {
 
 resource "github_repository_webhook" "repository_webhook" {
   count = length(var.webhooks)
+
+  depends_on = [time_sleep.wait_for_repository]
 
   repository = github_repository.repository.name
   # the optional `name` attribute causes an error so it has been removed
@@ -492,6 +522,8 @@ locals {
 resource "github_repository_autolink_reference" "repository_autolink_reference" {
   for_each = local.autolink_references
 
+  depends_on = [time_sleep.wait_for_repository]
+
   repository          = github_repository.repository.name
   key_prefix          = each.value.key_prefix
   target_url_template = each.value.target_url_template
@@ -503,6 +535,8 @@ resource "github_repository_autolink_reference" "repository_autolink_reference" 
 
 resource "github_app_installation_repository" "app_installation_repository" {
   for_each = var.app_installations
+
+  depends_on = [time_sleep.wait_for_repository]
 
   repository      = github_repository.repository.name
   installation_id = each.value
