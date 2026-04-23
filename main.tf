@@ -396,10 +396,10 @@ locals {
   team_maintain = [for i in var.maintain_teams : { slug = replace(lower(i), "/[^a-z0-9_]/", "-"), permission = "maintain" }]
 
   teams = merge(
-    { for i in local.team_maintain  : i.slug => i },
-    { for i in local.team_triage    : i.slug => i },
     { for i in local.team_pull      : i.slug => i },
+    { for i in local.team_triage    : i.slug => i },
     { for i in local.team_push      : i.slug => i },
+    { for i in local.team_maintain  : i.slug => i },
     { for i in local.team_admin     : i.slug => i },
   )
 }
