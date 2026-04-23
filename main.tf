@@ -395,13 +395,13 @@ locals {
   team_triage   = [for i in var.triage_teams : { slug = replace(lower(i), "/[^a-z0-9_]/", "-"), permission = "triage" }]
   team_maintain = [for i in var.maintain_teams : { slug = replace(lower(i), "/[^a-z0-9_]/", "-"), permission = "maintain" }]
 
-  teams = { for i in concat(
-    local.team_admin,
-    local.team_push,
-    local.team_pull,
-    local.team_triage,
-    local.team_maintain,
-  ) : i.slug => i }
+  teams = merge(
+    { for i in local.team_maintain  : i.slug => i },
+    { for i in local.team_triage    : i.slug => i },
+    { for i in local.team_pull      : i.slug => i },
+    { for i in local.team_push      : i.slug => i },
+    { for i in local.team_admin     : i.slug => i },
+  )
 }
 
 resource "github_team_repository" "team_repository_by_slug" {
